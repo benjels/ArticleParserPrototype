@@ -13,10 +13,9 @@ def main():
 
 #traverses all of the files that we want to check the NZness of. This function pretty much does everything but defers to helper functions.
 def traverseFiles():
+    #TODO: GET THE FILE THAT WE WILL BE APPLYING THE REST OF THE ALGORITHM ON AND TAKE ONE LINE OUT OF IT WHICH REPRESENTS ONE ARTICLE
 
-    #for now just testing this on a single files but will use the os.walk() function to recursively explore some dir
-
-    #convert each file to plain text with some stuff omitted (e.g. the json syntax and the article hash id etc)
+    #extract the text from our article that we will be supplying to the wikipedia miner service
     eachArticleJSONFile = open('C:\!2015SCHOLARSHIPSTUFF\dummyNzTest\[from_the_argus.]_new_zealand._wellington,_november_17..json', "r")
     fileText = eachArticleJSONFile.readline()
     articleJSONObj = json.loads(fileText)
@@ -24,15 +23,39 @@ def traverseFiles():
 
     #use the plain text of this article to do a "search" type wikipedia miner query
     with requests.Session() as session:
-        url = "wikipedia-miner.cms.waikato.ac.nz/services/search?query=" + articleText + "&complex=true"
-        print(url)
-    #parse the result of our query and add all senses that scored over 0.3 in weight/probability to a list
+        url = "http://wikipedia-miner.cms.waikato.ac.nz/services/search?query=" + articleText + "&complex=true&responseFormat=json"
+        result = session.get("http://wikipedia-miner.cms.waikato.ac.nz/services/search?query=new zealand nelson auckland the even to the it london&complex=true&responseFormat=json")
+        responseJSONObj = json.loads(result.text)
 
-
+        #iterate over each identified term in the text (e.g. "blue")
+        likelyRelevantSenses = [] # a list that will hold the senses in this text that score well with weight/probablity. I.E. SENSES THAT ARE PROBABLY KEY TO THE OVERALL SEMANTIC MESSAGE OF THE ORIGINAL TEXT (AS JUDGED BY WIKIPEDIA MINER)
+        for eachIDedTermInfo in responseJSONObj['labels']:
+            print("----------------------------------------------------------------------------------------------------")
+            print("the term: " + eachIDedTermInfo.get('text') + " has the following sense information: ")
+            i = 0
+            #iterate over each identified "sense" of this term (e.g. "blue (color)". This is done in order of descending weight.
+            for eachSense in eachIDedTermInfo.get('senses'):
+                print("-----------------------------------------")
+                print("sense" + str(i) +": " + eachSense.get('title'))
+                print("weight: " + str(eachSense.get('weight')))
+                print("prior prob: " + str(eachSense.get('priorProbability')))
+                #check if this sense is deemed relevant
+                if eachSense.get('weight') >= 0.1 or eachSense.get('priorProbability') >= 0.1: #note that these values are really jsut place holders
+                    likelyRelevantSenses.append(eachSense)
+                i += 1
     #compare this list to our list of NZ articles IDs and if we get matches, add to the list of matches with the appropriate NZProportionWeight
+    sensesWhichMatchNZSense = [] #list of the senses that appear in both the established set of nz relevent senses and the set of senses from the supplied text that were deemed relevent.
+    for eachArticleSense in likelyRelevantSenses: #TODO: this is obvs an inneficient way to do this and i will need to think about how to make these comparisons fast in the java implementation
+        for eachNZSenseID in ListOfNZArticleIDs:
+            if eachArticleSense.get('id') == eachNZSenseID:
+                sensesWhichMatchNZSense.append(eachArticleSense)
 
-
+    #at this point we should have all senses that were IDed in the supplied text that are also present in our collection of NZ related sense loaded into our list
+    print(" \n \n \n ====== now printing out our final result senses (if any found) =======")
+    for eachFoundRelevantSense in sensesWhichMatchNZSense:
+        print(eachFoundRelevantSense)
 
 
 if __name__ == "__main__":
     main()
+    #jsonTest()
